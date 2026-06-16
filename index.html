@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>雙人記帳本</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#6c63ff" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="記帳本" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- 登入畫面 -->
+<div id="login-screen" class="screen active">
+  <div class="login-card">
+    <h1>💰 雙人記帳本</h1>
+    <p>請選擇使用者</p>
+    <div class="user-buttons">
+      <button class="user-btn" onclick="selectUser('user1')">
+        <span class="avatar">👤</span>
+        <span id="user1-display-name">使用者 1</span>
+      </button>
+      <button class="user-btn" onclick="selectUser('user2')">
+        <span class="avatar">👤</span>
+        <span id="user2-display-name">使用者 2</span>
+      </button>
+    </div>
+    <div class="name-edit">
+      <p>修改名稱：</p>
+      <div class="name-inputs">
+        <input type="text" id="edit-user1-name" placeholder="使用者 1 名稱" />
+        <input type="text" id="edit-user2-name" placeholder="使用者 2 名稱" />
+        <button onclick="saveUserNames()">儲存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 主畫面 -->
+<div id="main-screen" class="screen">
+  <nav class="navbar">
+    <div class="nav-left">
+      <span id="current-user-label">👤 使用者</span>
+    </div>
+    <div class="nav-tabs">
+      <button class="tab-btn active" onclick="showTab('records')">記帳</button>
+      <button class="tab-btn" onclick="showTab('monthly')">月報</button>
+      <button class="tab-btn" onclick="showTab('annual')">年報</button>
+    </div>
+    <div class="nav-right">
+      <button class="hamburger-btn" onclick="toggleMenu(event)" aria-label="選單">
+        <span></span><span></span><span></span>
+      </button>
+      <div id="hamburger-menu" class="hamburger-menu">
+        <button onclick="showTab('categories'); closeMenu()">🗂️ 類別管理</button>
+        <button onclick="showTab('data'); closeMenu()">💾 資料管理</button>
+        <div class="menu-divider"></div>
+        <button class="menu-logout" onclick="logout(); closeMenu()">🔄 切換使用者</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- 記帳頁 -->
+  <div id="tab-records" class="tab-content active">
+    <div class="content-layout">
+      <!-- 新增記錄表單 -->
+      <div class="card form-card">
+        <h2>新增記錄</h2>
+        <div class="form-group">
+          <label>類型</label>
+          <div class="type-toggle">
+            <button id="type-expense" class="type-btn active" onclick="setType('expense')">支出</button>
+            <button id="type-income" class="type-btn" onclick="setType('income')">收入</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>金額 (NT$)</label>
+          <input type="number" id="amount" placeholder="0" min="0" />
+        </div>
+        <div class="form-group">
+          <label>類別</label>
+          <select id="category"></select>
+        </div>
+        <div class="form-group">
+          <label>品項說明</label>
+          <input type="text" id="description" placeholder="輸入品項說明..." />
+        </div>
+        <div class="form-group">
+          <label>日期</label>
+          <input type="date" id="record-date" />
+        </div>
+        <button class="submit-btn" onclick="addRecord()">新增</button>
+      </div>
+
+      <!-- 右欄 -->
+      <div class="right-col">
+
+        <!-- 本日記錄 -->
+        <div class="card today-card">
+          <h2>本日記錄</h2>
+          <div class="summary-bar today-summary">
+            <span class="income-total">收入：<strong id="today-income">NT$0</strong></span>
+            <span class="expense-total">支出：<strong id="today-expense">NT$0</strong></span>
+          </div>
+          <div id="today-list"></div>
+        </div>
+
+        <!-- 本月記錄 -->
+        <div class="card list-card">
+          <div class="list-header">
+            <h2>本月記錄</h2>
+            <div class="filter-row">
+              <select id="filter-month" onchange="renderRecords()"></select>
+              <select id="filter-year" onchange="renderRecords()"></select>
+            </div>
+          </div>
+          <div class="summary-bar">
+            <span class="income-total">收入：<strong id="total-income">NT$0</strong></span>
+            <span class="expense-total">支出：<strong id="total-expense">NT$0</strong></span>
+            <span class="balance-total">結餘：<strong id="total-balance">NT$0</strong></span>
+          </div>
+          <div id="records-list"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- 月報頁 -->
+  <div id="tab-monthly" class="tab-content">
+    <div class="monthly-filter-bar">
+      <select id="chart-month" onchange="renderMonthlyChart()"></select>
+      <select id="chart-year" onchange="renderMonthlyChart()"></select>
+    </div>
+    <div class="monthly-grid">
+      <!-- 支出分析 -->
+      <div class="card">
+        <h2>月支出分析</h2>
+        <div class="chart-layout">
+          <div class="chart-wrap">
+            <canvas id="monthly-expense-chart"></canvas>
+          </div>
+          <div id="monthly-expense-legend" class="legend-wrap"></div>
+        </div>
+        <div id="monthly-expense-no-data" class="no-data">本月無支出資料</div>
+      </div>
+      <!-- 收入分析 -->
+      <div class="card">
+        <h2>月收入分析</h2>
+        <div class="chart-layout">
+          <div class="chart-wrap">
+            <canvas id="monthly-income-chart"></canvas>
+          </div>
+          <div id="monthly-income-legend" class="legend-wrap"></div>
+        </div>
+        <div id="monthly-income-no-data" class="no-data">本月無收入資料</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 年報頁 -->
+  <div id="tab-annual" class="tab-content">
+    <div class="card">
+      <div class="chart-header">
+        <h2>年度開支總覽</h2>
+        <div class="chart-filters">
+          <select id="annual-year" onchange="renderAnnualChart()"></select>
+        </div>
+      </div>
+      <canvas id="annual-bar-chart"></canvas>
+      <div id="annual-summary" class="annual-summary"></div>
+    </div>
+  </div>
+
+  <!-- 類別管理頁 -->
+  <div id="tab-categories" class="tab-content">
+    <div class="content-layout">
+      <div class="card">
+        <h2>支出類別</h2>
+        <div class="add-category">
+          <input type="text" id="new-expense-category" placeholder="新增支出類別..." />
+          <input type="text" id="new-expense-icon" placeholder="圖示（如 🍔）" maxlength="2" />
+          <button onclick="addCategory('expense')">新增</button>
+        </div>
+        <div id="expense-categories-list" class="categories-list"></div>
+      </div>
+      <div class="card">
+        <h2>收入類別</h2>
+        <div class="add-category">
+          <input type="text" id="new-income-category" placeholder="新增收入類別..." />
+          <input type="text" id="new-income-icon" placeholder="圖示（如 💼）" maxlength="2" />
+          <button onclick="addCategory('income')">新增</button>
+        </div>
+        <div id="income-categories-list" class="categories-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+  <!-- 資料管理頁 -->
+  <div id="tab-data" class="tab-content">
+    <div class="data-grid">
+
+      <!-- 匯出 -->
+      <div class="card">
+        <h2>📤 匯出資料</h2>
+        <p class="data-desc">將目前使用者的所有記錄匯出為檔案。</p>
+        <div class="data-actions">
+          <button class="data-btn export-json" onclick="exportJSON()">
+            <span class="data-btn-icon">{ }</span>
+            匯出 JSON
+          </button>
+          <button class="data-btn export-excel" onclick="exportExcel()">
+            <span class="data-btn-icon">📊</span>
+            匯出 Excel
+          </button>
+        </div>
+      </div>
+
+      <!-- 匯入 -->
+      <div class="card">
+        <h2>📥 匯入資料</h2>
+        <p class="data-desc">從之前匯出的 JSON 或 Excel 檔案還原記錄。<br><strong>匯入不會覆蓋現有資料，而是合併新增。</strong></p>
+        <div class="data-actions">
+          <label class="data-btn import-json">
+            <span class="data-btn-icon">{ }</span>
+            匯入 JSON
+            <input type="file" accept=".json" onchange="importJSON(event)" hidden />
+          </label>
+          <label class="data-btn import-excel">
+            <span class="data-btn-icon">📊</span>
+            匯入 Excel
+            <input type="file" accept=".xlsx,.xls" onchange="importExcel(event)" hidden />
+          </label>
+        </div>
+        <div id="import-result" class="import-result"></div>
+      </div>
+
+      <!-- 清除指定年份資料 -->
+      <div class="card danger-card">
+        <h2>🗑️ 清除指定年份資料</h2>
+        <p class="data-desc">選擇要刪除的年份，此操作無法復原。<br>建議先匯出備份再清除。</p>
+        <div class="form-group">
+          <label>選擇年份</label>
+          <select id="clear-year-select"></select>
+        </div>
+        <div class="confirm-input-wrap">
+          <label>請輸入 <code>clear</code> 確認：</label>
+          <input type="text" id="clear-confirm-input" placeholder="輸入 clear" autocomplete="off" />
+        </div>
+        <button class="data-btn danger-btn" onclick="clearByYear()">清除資料</button>
+      </div>
+
+    </div>
+  </div>
+
+<script src="app.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then(r => console.log('SW registered:', r.scope))
+        .catch(e => console.error('SW error:', e));
+    });
+  }
+</script>
+</body>
+</html>
