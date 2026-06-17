@@ -186,6 +186,9 @@ function addRecord() {
   saveUserData(currentUser, data);
 
   document.getElementById('amount').value = '';
+  document.getElementById('foreign-amount').value = '';
+  document.getElementById('currency').value = 'TWD';
+  onCurrencyChange('record');
   document.getElementById('description').value = '';
 
   renderRecords();
@@ -758,6 +761,95 @@ function autoGenerateSubscriptions() {
     saveUserData(currentUser, data);
     renderRecords();
   }
+}
+
+// ── Currency / Exchange Rate ──
+const rateCache = {}; // { 'USD': 32.5, 'EUR': 35.1 }
+
+const CURRENCY_SYMBOLS = { TWD: 'NT$', USD: 'US$', EUR: '€' };
+
+function ids(prefix) {
+  return {
+    currency:  document.getElementById(prefix === 'record' ? 'currency'          : 'sub-currency'),
+    bankGroup: document.getElementById(prefix === 'record' ? 'bank-group'        : 'sub-bank-group'),
+    bank:      document.getElementById(prefix === 'record' ? 'bank-select'       : 'sub-bank-select'),
+    rateDisp:  document.getElementById(prefix === 'record' ? 'rate-display'      : 'sub-rate-display'),
+    foreignIn: document.getElementById(prefix === 'record' ? 'foreign-amount'    : 'sub-foreign-amount'),
+    twdIn:     document.getElementById(prefix === 'record' ? 'amount'            : 'sub-amount'),
+    convDisp:  document.getElementById(prefix === 'record' ? 'converted-display' : 'sub-converted-display'),
+    amtLabel:  document.getElementById(prefix === 'record' ? 'amount-label'      : 'sub-amount-label'),
+  };
+}
+
+async function onCurrencyChange(prefix) {
+  const el = ids(prefix);
+  const cur = el.currency.value;
+
+  if (cur === 'TWD') {
+    el.bankGroup.style.display = 'none';
+    el.rateDisp.style.display  = 'none';
+    el.foreignIn.style.display = 'none';
+    el.convDisp.style.display  = 'none';
+    el.twdIn.style.display     = '';
+    el.amtLabel.textContent    = '金額 (NT$)';
+    el.twdIn.value = '';
+  } else {
+    el.bankGroup.style.display = '';
+    el.foreignIn.style.display = '';
+    el.twdIn.style.display     = 'none';
+    el.amtLabel.textContent    = `金額 (${cur})`;
+    el.foreignIn.value = '';
+    el.twdIn.value = '';
+    el.convDisp.style.display = 'none';
+    await fetchRate(prefix);
+  }
+}
+
+async function fetchRate(prefix) {
+  const el  = ids(prefix);
+  const cur = el.currency.value;
+  if (cur === 'TWD') return;
+
+  el.rateDisp.style.display = '';
+  el.rateDisp.className = 'rate-display rate-loading';
+  el.rateDisp.textContent = '匯率載入中…';
+
+  try {
+    let rate;
+    if (rateCache[cur]) {
+      rate = rateCache[cur];
+    } else {
+      const res  = await fetch(`https://api.frankfurter.app/latest?from=${cur}&to=TWD`);
+      const json = await res.json();
+      rate = json.rates.TWD;
+      rateCache[cur] = rate;
+    }
+    el.rateDisp.className = 'rate-display';
+    el.rateDisp.innerHTML = `💱 1 ${cur} ≈ NT$${rate.toFixed(2)}　<span style="opacity:.7;font-size:.78rem">（國泰世華參考匯率）</span>`;
+    convertAmount(prefix);
+  } catch {
+    el.rateDisp.className = 'rate-display';
+    el.rateDisp.textContent = '⚠️ 匯率載入失敗，請手動輸入台幣金額';
+    el.foreignIn.style.display = 'none';
+    el.twdIn.style.display = '';
+    el.amtLabel.textContent = '金額 (NT$)';
+  }
+}
+
+function convertAmount(prefix) {
+  const el   = ids(prefix);
+  const cur  = el.currency.value;
+  const rate = rateCache[cur];
+  const famt = parseFloat(el.foreignIn.value);
+  if (!rate || !famt || famt <= 0) {
+    el.convDisp.style.display = 'none';
+    el.twdIn.value = '';
+    return;
+  }
+  const twd = Math.round(famt * rate);
+  el.twdIn.value = twd;
+  el.convDisp.style.display = '';
+  el.convDisp.textContent = `≈ NT$${twd.toLocaleString()}`;
 }
 
 // ── Export JSON ──

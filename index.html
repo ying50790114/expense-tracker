@@ -82,8 +82,25 @@
           </div>
         </div>
         <div class="form-group">
-          <label>金額 (NT$)</label>
+          <label>幣種</label>
+          <select id="currency" onchange="onCurrencyChange('record')">
+            <option value="TWD">🇹🇼 台幣 (TWD)</option>
+            <option value="USD">🇺🇸 美元 (USD)</option>
+            <option value="EUR">🇪🇺 歐元 (EUR)</option>
+          </select>
+        </div>
+        <div id="bank-group" class="form-group" style="display:none">
+          <label>銀行</label>
+          <select id="bank-select" onchange="fetchRate('record')">
+            <option value="cathay">國泰世華</option>
+          </select>
+        </div>
+        <div id="rate-display" class="rate-display" style="display:none"></div>
+        <div class="form-group">
+          <label id="amount-label">金額 (NT$)</label>
+          <input type="number" id="foreign-amount" placeholder="0" min="0" style="display:none" oninput="convertAmount('record')" />
           <input type="number" id="amount" placeholder="0" min="0" />
+          <div id="converted-display" class="converted-display" style="display:none"></div>
         </div>
         <div class="form-group">
           <label>類別</label>
@@ -217,8 +234,25 @@
           <input type="text" id="sub-name" placeholder="例：Netflix、Spotify..." />
         </div>
         <div class="form-group">
-          <label>每月金額 (NT$)</label>
+          <label>幣種</label>
+          <select id="sub-currency" onchange="onCurrencyChange('sub')">
+            <option value="TWD">🇹🇼 台幣 (TWD)</option>
+            <option value="USD">🇺🇸 美元 (USD)</option>
+            <option value="EUR">🇪🇺 歐元 (EUR)</option>
+          </select>
+        </div>
+        <div id="sub-bank-group" class="form-group" style="display:none">
+          <label>銀行</label>
+          <select id="sub-bank-select" onchange="fetchRate('sub')">
+            <option value="cathay">國泰世華</option>
+          </select>
+        </div>
+        <div id="sub-rate-display" class="rate-display" style="display:none"></div>
+        <div class="form-group">
+          <label id="sub-amount-label">金額 (NT$)</label>
+          <input type="number" id="sub-foreign-amount" placeholder="0" min="0" style="display:none" oninput="convertAmount('sub')" />
           <input type="number" id="sub-amount" placeholder="0" min="0" />
+          <div id="sub-converted-display" class="converted-display" style="display:none"></div>
         </div>
         <div class="form-group">
           <label>類別</label>

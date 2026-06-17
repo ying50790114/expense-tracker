@@ -624,6 +624,28 @@ body {
 }
 .category-delete:hover { color: var(--expense); }
 
+/* ── Currency ── */
+.rate-display {
+  background: var(--primary-light);
+  color: var(--primary);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: .83rem;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.rate-loading { color: var(--text-muted); }
+
+.converted-display {
+  margin-top: 6px;
+  font-size: .85rem;
+  color: var(--primary);
+  font-weight: 600;
+  padding: 4px 0 0 2px;
+}
+
 /* ── Subscriptions ── */
 .sub-item {
   display: flex;
