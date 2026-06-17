@@ -39,7 +39,7 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const url = e.request.url;
   const isLocal = url.startsWith(self.location.origin);
-  const isApi   = url.includes('frankfurter.app');
+  const isApi   = url.includes('allorigins.win') || url.includes('rate.bot.com.tw');
 
   if (isApi) {
     // 匯率 API：永遠走網路，不快取
