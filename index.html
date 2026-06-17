@@ -225,10 +225,20 @@
           <select id="sub-category"></select>
         </div>
         <div class="form-group">
-          <label>每月扣款日</label>
-          <select id="sub-day">
-            <!-- 1~28 日 -->
+          <label>繳費週期</label>
+          <select id="sub-frequency" onchange="onFrequencyChange()">
+            <option value="monthly">月繳</option>
+            <option value="quarterly">季繳（每 3 個月）</option>
+            <option value="annual">年繳</option>
           </select>
+        </div>
+        <div class="form-group" id="sub-month-group" style="display:none">
+          <label id="sub-month-label">起始月份</label>
+          <select id="sub-month"></select>
+        </div>
+        <div class="form-group">
+          <label>扣款日</label>
+          <select id="sub-day"></select>
         </div>
         <button class="submit-btn" onclick="addSubscription()">新增訂閱</button>
       </div>

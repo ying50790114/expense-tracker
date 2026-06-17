@@ -594,14 +594,19 @@ function escHtml(str) {
 
 // ── Subscriptions ──
 function initSubForm() {
-  // 扣款日 1~28
   const dayEl = document.getElementById('sub-day');
   if (dayEl) {
-    dayEl.innerHTML = Array.from({length: 28}, (_, i) =>
-      `<option value="${i+1}">每月 ${i+1} 日</option>`
+    dayEl.innerHTML = Array.from({length: 30}, (_, i) =>
+      `<option value="${i+1}">${i+1} 日</option>`
     ).join('');
   }
-  // 類別（只用支出）
+
+  const monthEl = document.getElementById('sub-month');
+  if (monthEl && !monthEl.options.length) {
+    const names = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+    monthEl.innerHTML = names.map((m, i) => `<option value="${i+1}">${m}</option>`).join('');
+  }
+
   const data = getUserData(currentUser);
   const catEl = document.getElementById('sub-category');
   if (catEl) {
@@ -611,17 +616,34 @@ function initSubForm() {
   }
 }
 
+function onFrequencyChange() {
+  const freq = document.getElementById('sub-frequency').value;
+  const monthGroup = document.getElementById('sub-month-group');
+  const monthLabel = document.getElementById('sub-month-label');
+  if (freq === 'monthly') {
+    monthGroup.style.display = 'none';
+  } else if (freq === 'quarterly') {
+    monthGroup.style.display = '';
+    monthLabel.textContent = '起始扣款月份';
+  } else if (freq === 'annual') {
+    monthGroup.style.display = '';
+    monthLabel.textContent = '起始扣款月份';
+  }
+}
+
 function addSubscription() {
   const name   = document.getElementById('sub-name').value.trim();
   const amount = parseFloat(document.getElementById('sub-amount').value);
-  const day    = parseInt(document.getElementById('sub-day').value);
-  const catEl  = document.getElementById('sub-category');
-  const catId  = catEl.value;
-  const catOpt = catEl.options[catEl.selectedIndex];
-  const catName = catOpt.dataset.name;
-  const catIcon = catOpt.dataset.icon;
+  const day       = parseInt(document.getElementById('sub-day').value);
+  const frequency = document.getElementById('sub-frequency').value;
+  const month     = frequency !== 'monthly' ? parseInt(document.getElementById('sub-month').value) : null;
+  const catEl     = document.getElementById('sub-category');
+  const catId     = catEl.value;
+  const catOpt    = catEl.options[catEl.selectedIndex];
+  const catName   = catOpt.dataset.name;
+  const catIcon   = catOpt.dataset.icon;
 
-  if (!name)          { alert('請輸入服務名稱'); return; }
+  if (!name)               { alert('請輸入服務名稱'); return; }
   if (!amount || amount <= 0) { alert('請輸入有效金額'); return; }
 
   const data = getUserData(currentUser);
@@ -629,7 +651,7 @@ function addSubscription() {
 
   data.subscriptions.push({
     id: `sub_${Date.now()}`,
-    name, amount, day,
+    name, amount, day, frequency, month,
     categoryId: catId, categoryName: catName, categoryIcon: catIcon,
   });
   saveUserData(currentUser, data);
@@ -646,6 +668,15 @@ function deleteSubscription(id) {
   data.subscriptions = (data.subscriptions || []).filter(s => s.id !== id);
   saveUserData(currentUser, data);
   renderSubscriptions();
+}
+
+function subFreqLabel(s) {
+  const freq = s.frequency || 'monthly';
+  const monthNames = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  if (freq === 'monthly')   return `每月 ${s.day} 日`;
+  if (freq === 'quarterly') return `季繳・${monthNames[(s.month - 1) % 12]} ${s.day} 日起`;
+  if (freq === 'annual')    return `年繳・每年 ${monthNames[s.month - 1]} ${s.day} 日`;
+  return `每月 ${s.day} 日`;
 }
 
 function renderSubscriptions() {
@@ -669,7 +700,7 @@ function renderSubscriptions() {
       <div class="sub-icon">${s.categoryIcon}</div>
       <div class="sub-info">
         <div class="sub-title">${escHtml(s.name)}</div>
-        <div class="sub-meta">${s.categoryName}・每月 ${s.day} 日扣款</div>
+        <div class="sub-meta">${s.categoryName}・${subFreqLabel(s)}</div>
       </div>
       <div class="sub-amount">-NT$${s.amount.toLocaleString()}</div>
       <button class="sub-delete" onclick="deleteSubscription('${s.id}')" title="刪除">✕</button>
@@ -693,9 +724,21 @@ function autoGenerateSubscriptions() {
 
   subs.forEach(s => {
     const genKey = `${s.id}_${monthKey}`;
-    if (data.subGenerated.includes(genKey)) return; // 已產生過
+    if (data.subGenerated.includes(genKey)) return;
 
-    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(s.day).padStart(2, '0')}`;
+    // 判斷本月是否應產生
+    const freq = s.frequency || 'monthly';
+    if (freq === 'quarterly') {
+      const startMonth = (s.month - 1 + 12) % 12;
+      const diff = (month - startMonth + 12) % 12;
+      if (diff % 3 !== 0) return;
+    } else if (freq === 'annual') {
+      if (month + 1 !== s.month) return;
+    }
+
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const actualDay = Math.min(s.day, daysInMonth);
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(actualDay).padStart(2, '0')}`;
     data.records.unshift({
       id: `sub_rec_${Date.now()}_${Math.random().toString(36).slice(2)}`,
       type: 'expense',
