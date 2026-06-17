@@ -57,8 +57,11 @@
         <span></span><span></span><span></span>
       </button>
       <div id="hamburger-menu" class="hamburger-menu">
+        <button onclick="showTab('subscriptions'); closeMenu()">🔁 訂閱管理</button>
         <button onclick="showTab('categories'); closeMenu()">🗂️ 類別管理</button>
         <button onclick="showTab('data'); closeMenu()">💾 資料管理</button>
+        <div class="menu-divider"></div>
+        <button id="dark-mode-btn" onclick="toggleDarkMode()">🌙 深色模式</button>
         <div class="menu-divider"></div>
         <button class="menu-logout" onclick="logout(); closeMenu()">🔄 切換使用者</button>
       </div>
@@ -202,6 +205,44 @@
   </div>
 </div>
 
+  <!-- 訂閱管理頁 -->
+  <div id="tab-subscriptions" class="tab-content">
+    <div class="content-layout">
+
+      <!-- 新增訂閱表單 -->
+      <div class="card form-card">
+        <h2>新增訂閱</h2>
+        <div class="form-group">
+          <label>服務名稱</label>
+          <input type="text" id="sub-name" placeholder="例：Netflix、Spotify..." />
+        </div>
+        <div class="form-group">
+          <label>每月金額 (NT$)</label>
+          <input type="number" id="sub-amount" placeholder="0" min="0" />
+        </div>
+        <div class="form-group">
+          <label>類別</label>
+          <select id="sub-category"></select>
+        </div>
+        <div class="form-group">
+          <label>每月扣款日</label>
+          <select id="sub-day">
+            <!-- 1~28 日 -->
+          </select>
+        </div>
+        <button class="submit-btn" onclick="addSubscription()">新增訂閱</button>
+      </div>
+
+      <!-- 訂閱列表 -->
+      <div class="card">
+        <h2>訂閱項目</h2>
+        <p class="data-desc" id="sub-hint"></p>
+        <div id="subscriptions-list"></div>
+      </div>
+
+    </div>
+  </div>
+
   <!-- 資料管理頁 -->
   <div id="tab-data" class="tab-content">
     <div class="data-grid">
@@ -258,6 +299,36 @@
 
     </div>
   </div>
+
+<!-- 編輯 Modal -->
+<div id="edit-modal" class="modal-overlay" onclick="closeEditModal(event)">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>編輯記錄</h3>
+      <button class="modal-close" onclick="closeEditModal()">✕</button>
+    </div>
+    <div class="form-group">
+      <label>金額 (NT$)</label>
+      <input type="number" id="edit-amount" min="0" />
+    </div>
+    <div class="form-group">
+      <label>類別</label>
+      <select id="edit-category"></select>
+    </div>
+    <div class="form-group">
+      <label>品項說明</label>
+      <input type="text" id="edit-description" />
+    </div>
+    <div class="form-group">
+      <label>日期</label>
+      <input type="date" id="edit-date" />
+    </div>
+    <div class="modal-actions">
+      <button class="modal-cancel" onclick="closeEditModal()">取消</button>
+      <button class="modal-save"   onclick="saveEditRecord()">儲存</button>
+    </div>
+  </div>
+</div>
 
 <script src="app.js"></script>
 <script>

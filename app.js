@@ -6,10 +6,12 @@ const DEFAULT_CATEGORIES = {
     { id: 'food',      name: '餐飲',   icon: '🍔', isDefault: true },
     { id: 'transport', name: '交通',   icon: '🚌', isDefault: true },
     { id: 'shopping',  name: '購物',   icon: '🛍️', isDefault: true },
-    { id: 'housing',   name: '日常開銷', icon: '🏠', isDefault: true },
+    { id: 'housing',   name: '家用',   icon: '🏠', isDefault: true },
     { id: 'medical',   name: '醫療',   icon: '💊', isDefault: true },
     { id: 'entertain', name: '娛樂',   icon: '🎮', isDefault: true },
     { id: 'education', name: '進修',   icon: '📚', isDefault: true },
+    { id: 'telecom',   name: '電信',   icon: '📱', isDefault: true },
+    { id: 'software',  name: '軟體服務', icon: '💻', isDefault: true },
     { id: 'other_exp', name: '其他支出', icon: '💸', isDefault: true },
   ],
   income: [
@@ -21,11 +23,21 @@ const DEFAULT_CATEGORIES = {
   ],
 };
 
-const CHART_COLORS = [
+const CHART_COLORS_LIGHT = [
   '#6c63ff','#48b1f3','#22c55e','#ef4444','#f59e0b',
   '#ec4899','#14b8a6','#8b5cf6','#f97316','#06b6d4',
   '#84cc16','#e11d48','#0ea5e9','#a855f7','#10b981',
 ];
+const CHART_COLORS_DARK = [
+  '#3730a3','#1e5f8a','#166534','#991b1b','#92400e',
+  '#9d174d','#134e4a','#4c1d95','#9a3412','#164e63',
+  '#365314','#881337','#1e40af','#581c87','#064e3b',
+];
+
+function getChartColors() {
+  return document.body.classList.contains('dark') ? CHART_COLORS_DARK : CHART_COLORS_LIGHT;
+}
+const CHART_COLORS = CHART_COLORS_LIGHT; // fallback reference
 
 // ── State ──
 let currentUser = null;
@@ -102,6 +114,7 @@ function initApp() {
   renderMonthlyChart();
   renderAnnualChart();
   populateClearYearSelect();
+  autoGenerateSubscriptions();
 }
 
 function populateMonthYearSelects() {
@@ -201,7 +214,8 @@ function recordItemHTML(r) {
       <div class="record-amount ${r.type}">
         ${r.type === 'expense' ? '-' : '+'}NT$${r.amount.toLocaleString()}
       </div>
-      <button class="record-delete" onclick="deleteRecord('${r.id}')" title="刪除">✕</button>
+      <button class="record-edit"   onclick="openEditModal('${r.id}')" title="編輯">✏️</button>
+      <button class="record-delete" onclick="deleteRecord('${r.id}')"  title="刪除">✕</button>
     </div>`;
 }
 
@@ -318,7 +332,8 @@ function renderPieChart(canvasId, legendId, noDataId, records) {
   const total = entries.reduce((s, e) => s + e.amount, 0);
   const labels = entries.map(e => `${e.icon} ${e.name}`);
   const amounts = entries.map(e => e.amount);
-  const colors = entries.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]);
+  const palette = getChartColors();
+  const colors = entries.map((_, i) => palette[i % palette.length]);
 
   const ctx = document.getElementById(canvasId).getContext('2d');
   const chart = new Chart(ctx, {
@@ -495,11 +510,208 @@ function showTab(name) {
   if (name === 'annual')  renderAnnualChart();
   if (name === 'categories') renderCategories();
   if (name === 'data') populateClearYearSelect();
+  if (name === 'subscriptions') renderSubscriptions();
+}
+
+// ── Edit Modal ──
+let editingRecordId = null;
+let editingRecordType = null;
+
+function openEditModal(id) {
+  const data = getUserData(currentUser);
+  const r = data.records.find(x => x.id === id);
+  if (!r) return;
+  editingRecordId   = id;
+  editingRecordType = r.type;
+
+  document.getElementById('edit-amount').value      = r.amount;
+  document.getElementById('edit-description').value = r.description;
+  document.getElementById('edit-date').value        = r.date;
+  updateEditCategorySelect(r.type, r.categoryId);
+
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+function closeEditModal(e) {
+  if (e && e.target !== document.getElementById('edit-modal')) return;
+  document.getElementById('edit-modal').classList.remove('open');
+  editingRecordId = null;
+}
+
+function updateEditCategorySelect(type, selectedId = null) {
+  const data = getUserData(currentUser);
+  const cats = data.categories[type] || [];
+  const sel = document.getElementById('edit-category');
+  sel.innerHTML = cats.map(c =>
+    `<option value="${c.id}" ${c.id === selectedId ? 'selected' : ''}>${c.icon} ${c.name}</option>`
+  ).join('');
+}
+
+function saveEditRecord() {
+  if (!editingRecordId) return;
+  const amount = parseFloat(document.getElementById('edit-amount').value);
+  const date   = document.getElementById('edit-date').value;
+  if (!amount || amount <= 0) { alert('請輸入有效金額'); return; }
+  if (!date) { alert('請選擇日期'); return; }
+
+  const type = editingRecordType;
+  const catEl = document.getElementById('edit-category');
+  const catId = catEl.value;
+  const catOpt = catEl.options[catEl.selectedIndex];
+  const catName = catOpt ? catOpt.text.slice(catOpt.text.indexOf(' ') + 1) : '';
+  const catIcon = catOpt ? catOpt.text.slice(0, [...catOpt.text][0].length) : '💸';
+
+  const data = getUserData(currentUser);
+  const idx  = data.records.findIndex(r => r.id === editingRecordId);
+  if (idx === -1) return;
+
+  const cat = (data.categories[type] || []).find(c => c.id === catId);
+  data.records[idx] = {
+    ...data.records[idx],
+    type,
+    amount,
+    categoryId:   catId,
+    categoryName: cat ? cat.name : catName,
+    categoryIcon: cat ? cat.icon : catIcon,
+    description:  document.getElementById('edit-description').value.trim() || (cat ? cat.name : ''),
+    date,
+  };
+  saveUserData(currentUser, data);
+  document.getElementById('edit-modal').classList.remove('open');
+  editingRecordId = null;
+  renderRecords();
+  renderMonthlyChart();
+  renderAnnualChart();
 }
 
 // ── Helpers ──
 function escHtml(str) {
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Subscriptions ──
+function initSubForm() {
+  // 扣款日 1~28
+  const dayEl = document.getElementById('sub-day');
+  if (dayEl) {
+    dayEl.innerHTML = Array.from({length: 28}, (_, i) =>
+      `<option value="${i+1}">每月 ${i+1} 日</option>`
+    ).join('');
+  }
+  // 類別（只用支出）
+  const data = getUserData(currentUser);
+  const catEl = document.getElementById('sub-category');
+  if (catEl) {
+    catEl.innerHTML = data.categories.expense.map(c =>
+      `<option value="${c.id}" data-icon="${c.icon}" data-name="${c.name}">${c.icon} ${c.name}</option>`
+    ).join('');
+  }
+}
+
+function addSubscription() {
+  const name   = document.getElementById('sub-name').value.trim();
+  const amount = parseFloat(document.getElementById('sub-amount').value);
+  const day    = parseInt(document.getElementById('sub-day').value);
+  const catEl  = document.getElementById('sub-category');
+  const catId  = catEl.value;
+  const catOpt = catEl.options[catEl.selectedIndex];
+  const catName = catOpt.dataset.name;
+  const catIcon = catOpt.dataset.icon;
+
+  if (!name)          { alert('請輸入服務名稱'); return; }
+  if (!amount || amount <= 0) { alert('請輸入有效金額'); return; }
+
+  const data = getUserData(currentUser);
+  if (!data.subscriptions) data.subscriptions = [];
+
+  data.subscriptions.push({
+    id: `sub_${Date.now()}`,
+    name, amount, day,
+    categoryId: catId, categoryName: catName, categoryIcon: catIcon,
+  });
+  saveUserData(currentUser, data);
+
+  document.getElementById('sub-name').value = '';
+  document.getElementById('sub-amount').value = '';
+  renderSubscriptions();
+  autoGenerateSubscriptions(); // 立即產生本月記錄
+}
+
+function deleteSubscription(id) {
+  if (!confirm('確定刪除此訂閱？已產生的記錄不會被刪除。')) return;
+  const data = getUserData(currentUser);
+  data.subscriptions = (data.subscriptions || []).filter(s => s.id !== id);
+  saveUserData(currentUser, data);
+  renderSubscriptions();
+}
+
+function renderSubscriptions() {
+  initSubForm();
+  const data = getUserData(currentUser);
+  const subs = data.subscriptions || [];
+  const today = new Date();
+  const hint = document.getElementById('sub-hint');
+  if (hint) hint.textContent = subs.length
+    ? `共 ${subs.length} 項，每月自動新增至支出記錄。`
+    : '';
+
+  const list = document.getElementById('subscriptions-list');
+  if (!list) return;
+  if (!subs.length) {
+    list.innerHTML = '<div class="sub-empty">尚未新增任何訂閱</div>';
+    return;
+  }
+  list.innerHTML = subs.map(s => `
+    <div class="sub-item">
+      <div class="sub-icon">${s.categoryIcon}</div>
+      <div class="sub-info">
+        <div class="sub-title">${escHtml(s.name)}</div>
+        <div class="sub-meta">${s.categoryName}・每月 ${s.day} 日扣款</div>
+      </div>
+      <div class="sub-amount">-NT$${s.amount.toLocaleString()}</div>
+      <button class="sub-delete" onclick="deleteSubscription('${s.id}')" title="刪除">✕</button>
+    </div>
+  `).join('');
+}
+
+// 每月自動產生訂閱記錄（登入時執行）
+function autoGenerateSubscriptions() {
+  const data = getUserData(currentUser);
+  const subs = data.subscriptions || [];
+  if (!subs.length) return;
+
+  const now   = new Date();
+  const year  = now.getFullYear();
+  const month = now.getMonth();
+  const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
+
+  if (!data.subGenerated) data.subGenerated = [];
+  let changed = false;
+
+  subs.forEach(s => {
+    const genKey = `${s.id}_${monthKey}`;
+    if (data.subGenerated.includes(genKey)) return; // 已產生過
+
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(s.day).padStart(2, '0')}`;
+    data.records.unshift({
+      id: `sub_rec_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+      type: 'expense',
+      amount: s.amount,
+      categoryId:   s.categoryId,
+      categoryName: s.categoryName,
+      categoryIcon: s.categoryIcon,
+      description: s.name,
+      date: dateStr,
+      isSubscription: true,
+    });
+    data.subGenerated.push(genKey);
+    changed = true;
+  });
+
+  if (changed) {
+    saveUserData(currentUser, data);
+    renderRecords();
+  }
 }
 
 // ── Export JSON ──
@@ -651,10 +863,12 @@ function clearByYear() {
 }
 
 // ── Category name migration ──
-const CATEGORY_RENAMES = { '居住': '日常開銷', '教育': '進修' };
+const CATEGORY_RENAMES = { '居住': '家用', '日常開銷': '家用', '教育': '進修' };
 function migrateCategories(userId) {
   const data = getUserData(userId);
   let changed = false;
+
+  // 改名
   ['expense', 'income'].forEach(type => {
     (data.categories[type] || []).forEach(c => {
       if (CATEGORY_RENAMES[c.name]) {
@@ -663,10 +877,49 @@ function migrateCategories(userId) {
       }
     });
   });
+
+  // 補上新預設類別（若 id 不存在才加）
+  const existingIds = new Set(data.categories.expense.map(c => c.id));
+  DEFAULT_CATEGORIES.expense.forEach(c => {
+    if (!existingIds.has(c.id)) {
+      // 插入到「其他支出」前面
+      const otherIdx = data.categories.expense.findIndex(x => x.id === 'other_exp');
+      if (otherIdx >= 0) data.categories.expense.splice(otherIdx, 0, { ...c });
+      else data.categories.expense.push({ ...c });
+      changed = true;
+    }
+  });
+
   if (changed) saveUserData(userId, data);
+}
+
+// ── Dark Mode ──
+function toggleDarkMode() {
+  const isDark = document.body.classList.toggle('dark');
+  localStorage.setItem('budget_dark_mode', isDark ? '1' : '0');
+  updateDarkModeBtn();
+  closeMenu();
+  // 重繪目前可見的圖表
+  if (document.getElementById('tab-monthly').classList.contains('active')) renderMonthlyChart();
+  if (document.getElementById('tab-annual').classList.contains('active'))  renderAnnualChart();
+}
+
+function updateDarkModeBtn() {
+  const btn = document.getElementById('dark-mode-btn');
+  if (!btn) return;
+  const isDark = document.body.classList.contains('dark');
+  btn.textContent = isDark ? '☀️ 淺色模式' : '🌙 深色模式';
+}
+
+function initDarkMode() {
+  if (localStorage.getItem('budget_dark_mode') === '1') {
+    document.body.classList.add('dark');
+  }
+  updateDarkModeBtn();
 }
 
 // ── Boot ──
 migrateCategories('user1');
 migrateCategories('user2');
 refreshUserNameDisplay();
+initDarkMode();
