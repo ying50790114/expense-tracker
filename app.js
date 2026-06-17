@@ -805,27 +805,19 @@ async function onCurrencyChange(prefix) {
   }
 }
 
-// 台灣銀行 CSV 幣別關鍵字對應
-const BOT_CURRENCY_KEYWORDS = { USD: '美元', EUR: '歐元' };
-
 async function fetchBotRate(currency) {
-  const targetUrl = 'https://rate.bot.com.tw/xrt/flcsv/0/day';
-  const proxyUrl  = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
-  const res  = await fetch(proxyUrl);
-  const json = await res.json();
-  const csv  = json.contents;
+  const rateApi = `https://corsproxy.io/https://rate.bot.com.tw/xrt/fltxt/0/day`;
+  const res  = await fetch(rateApi);
+  const txt  = await res.text();
 
-  // 跳過前兩行標題，逐行找對應幣別
-  const lines = csv.split('\n').slice(2);
-  const keyword = BOT_CURRENCY_KEYWORDS[currency];
-  for (const line of lines) {
-    if (!line.trim()) continue;
-    const cols = line.split(',');
-    if (cols[0] && cols[0].includes(keyword)) {
-      // 即期賣出為第 13 欄（0-indexed）
-      const spotSell = parseFloat(cols[13]);
-      if (!isNaN(spotSell) && spotSell > 0) return spotSell;
-    }
+  for (const line of txt.split('\n')) {
+    if (!line.trim().startsWith(currency)) continue;
+    const parts = line.trim().split(/\s+/);
+    // parts[13] = 即期賣出；若為 0（如韓圓）則 fallback 到 parts[12] 現金賣出
+    const spotSell = parseFloat(parts[13]);
+    if (!isNaN(spotSell) && spotSell > 0) return spotSell;
+    const cashSell = parseFloat(parts[12]);
+    if (!isNaN(cashSell) && cashSell > 0) return cashSell;
   }
   throw new Error('找不到匯率資料');
 }
@@ -848,7 +840,8 @@ async function fetchRate(prefix) {
       rateCache[cur] = rate;
     }
     el.rateDisp.className = 'rate-display';
-    el.rateDisp.innerHTML = `💱 1 ${cur} ≈ NT$${rate.toFixed(2)}　<span style="opacity:.7;font-size:.78rem">（台灣銀行即期賣出）</span>`;
+    const rateLabel = cur === 'KRW' ? '台灣銀行現金賣出' : '台灣銀行即期賣出';
+    el.rateDisp.innerHTML = `💱 1 ${cur} ≈ NT$${rate.toFixed(cur === 'KRW' ? 5 : 2)}　<span style="opacity:.7;font-size:.78rem">（${rateLabel}）</span>`;
     convertAmount(prefix);
   } catch {
     el.rateDisp.className = 'rate-display';
