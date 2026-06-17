@@ -209,7 +209,8 @@ function recordItemHTML(r) {
       <div class="record-icon ${r.type}">${r.categoryIcon}</div>
       <div class="record-info">
         <div class="desc">${escHtml(r.description)}</div>
-        <div class="meta">${r.categoryName} · ${r.date}</div>
+        <div class="meta">${r.categoryName}</div>
+        <div class="meta">${r.date}</div>
       </div>
       <div class="record-amount ${r.type}">
         ${r.type === 'expense' ? '-' : '+'}NT$${r.amount.toLocaleString()}
@@ -278,6 +279,8 @@ function renderRecords() {
     if (!weekMap[w]) weekMap[w] = [];
     weekMap[w].push(r);
   });
+  // 每週內的記錄由舊到新排序
+  Object.values(weekMap).forEach(recs => recs.sort((a, b) => a.date.localeCompare(b.date)));
 
   const weeks = Object.keys(weekMap).map(Number).sort((a,b) => a - b);
   list.innerHTML = weeks.map(w => {
