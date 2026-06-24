@@ -191,6 +191,11 @@ function addRecord() {
   onCurrencyChange('record');
   document.getElementById('description').value = '';
 
+  // 重置回初始設定：支出、餐飲、當日
+  setType('expense');
+  document.getElementById('category').value = 'food';
+  document.getElementById('record-date').value = new Date().toISOString().split('T')[0];
+
   renderRecords();
   renderMonthlyChart();
   renderAnnualChart();
