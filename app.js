@@ -1,5 +1,7 @@
 'use strict';
 
+const APP_VERSION = 'v1.5.0';
+
 // ── 預設類別 ──
 const DEFAULT_CATEGORIES = {
   expense: [
@@ -1082,3 +1084,6 @@ migrateCategories('user1');
 migrateCategories('user2');
 refreshUserNameDisplay();
 initDarkMode();
+
+document.getElementById('login-version').textContent = APP_VERSION;
+document.getElementById('menu-version').textContent  = APP_VERSION;

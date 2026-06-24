@@ -1,4 +1,4 @@
-const CACHE_NAME = 'budget-app-v3';
+const CACHE_NAME = 'budget-app-v1.5.0';
 
 // 只快取本地靜態資源（CDN 資源讓瀏覽器自行快取）
 const LOCAL_ASSETS = [
